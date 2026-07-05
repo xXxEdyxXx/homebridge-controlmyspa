@@ -57,19 +57,22 @@ class SpaPlatformAccessory {
         for (const comp of components) {
             const id = comp.port || comp.id;
             const type = comp.componentType || comp.type;
-            const name = comp.name || `${type} ${id}`;
-            if (type === 'PUMP') {
-                let pumpService = this.accessory.getService(name);
-                if (!pumpService) {
-                    pumpService = this.accessory.addService(this.platform.Service.Switch, name, `pump-${id}`);
+            let name = comp.name || `${type} ${id}`;
+            if (name === type) {
+                name = `${type} ${id}`;
+            }
+            if (type === 'PUMP' || type === 'BLOWER') {
+                let switchService = this.accessory.getServiceById(this.platform.Service.Switch, `${type.toLowerCase()}-${id}`);
+                if (!switchService) {
+                    switchService = this.accessory.addService(this.platform.Service.Switch, name, `${type.toLowerCase()}-${id}`);
                 }
-                pumpService.getCharacteristic(this.platform.Characteristic.On)
-                    .onGet(() => this.getPumpState(id))
-                    .onSet((value) => this.setPumpState(id, value));
-                this.pumpServices.set(id, pumpService);
+                switchService.getCharacteristic(this.platform.Characteristic.On)
+                    .onGet(() => this.getPumpState(id, type))
+                    .onSet((value) => this.setPumpState(id, type, value));
+                this.pumpServices.set(`${type}-${id}`, switchService);
             }
             else if (type === 'LIGHT') {
-                let lightService = this.accessory.getService(name);
+                let lightService = this.accessory.getServiceById(this.platform.Service.Lightbulb, `light-${id}`);
                 if (!lightService) {
                     lightService = this.accessory.addService(this.platform.Service.Lightbulb, name, `light-${id}`);
                 }
@@ -94,9 +97,9 @@ class SpaPlatformAccessory {
                 const id = comp.port || comp.id;
                 const type = comp.componentType || comp.type;
                 const value = comp.value; // typically "OFF", "LOW", "HIGH" or "ON"
-                if (type === 'PUMP' && this.pumpServices.has(id)) {
+                if ((type === 'PUMP' || type === 'BLOWER') && this.pumpServices.has(`${type}-${id}`)) {
                     const isOn = value !== 'OFF' && value !== 0 && value !== '0';
-                    this.pumpServices.get(id).updateCharacteristic(this.platform.Characteristic.On, isOn);
+                    this.pumpServices.get(`${type}-${id}`).updateCharacteristic(this.platform.Characteristic.On, isOn);
                 }
                 else if (type === 'LIGHT' && this.lightServices.has(id)) {
                     const isOn = value !== 'OFF' && value !== 0 && value !== '0';
@@ -157,8 +160,8 @@ class SpaPlatformAccessory {
             ? this.platform.Characteristic.TargetHeatingCoolingState.HEAT
             : this.platform.Characteristic.TargetHeatingCoolingState.AUTO;
     }
-    async getPumpState(id) {
-        const value = this.getComponentValue('PUMP', id);
+    async getPumpState(id, type = 'PUMP') {
+        const value = this.getComponentValue(type, id);
         return value !== 'OFF' && String(value) !== '0';
     }
     async getLightState(id) {
@@ -188,21 +191,26 @@ class SpaPlatformAccessory {
         // If user turns it "OFF", we could drop the target temp, but it's safer to just log it.
         this.platform.log.info(`TargetHeatingCoolingState set to: ${value} (Note: Mostly managed by target temperature)`);
     }
-    async setPumpState(id, value) {
+    async setPumpState(id, type, value) {
         const isOn = value;
         const spaId = this.accessory.context.spaId;
         const targetState = isOn ? 'HIGH' : 'OFF'; // Assuming 1-speed pumps for generic switch, or HIGH for 2-speed
         // Optimistic Update
         const components = this.accessory.context.spaData.currentState?.components;
-        const comp = components?.find((c) => c.port === id || c.id === id);
+        const comp = components?.find((c) => (c.port === id || c.id === id) && (c.componentType === type || c.type === type));
         if (comp)
             comp.value = targetState;
-        this.platform.log.info(`Setting Pump ${id} to ${targetState}`);
+        this.platform.log.info(`Setting ${type} ${id} to ${targetState}`);
         try {
-            await this.platform.controlMySpaApi.setPumpState(spaId, id, targetState);
+            if (type === 'BLOWER') {
+                await this.platform.controlMySpaApi.setBlowerState(spaId, id, targetState);
+            }
+            else {
+                await this.platform.controlMySpaApi.setPumpState(spaId, id, targetState);
+            }
         }
         catch (error) {
-            this.platform.log.error(`Failed to set Pump ${id}`, error);
+            this.platform.log.error(`Failed to set ${type} ${id}`, error);
             throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
         }
     }

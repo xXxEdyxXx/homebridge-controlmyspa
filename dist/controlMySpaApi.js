@@ -119,5 +119,15 @@ class ControlMySpaApi {
             via: 'MOBILE'
         });
     }
+    async setBlowerState(spaId, port, state) {
+        const endpoint = `/spa-command/component-state`;
+        return this.request('POST', endpoint, {
+            state: state === 'ON' ? 'HIGH' : 'OFF',
+            deviceNumber: parseInt(port, 10) || 0,
+            componentType: 'blower',
+            spaId: spaId,
+            via: 'MOBILE'
+        });
+    }
 }
 exports.ControlMySpaApi = ControlMySpaApi;
