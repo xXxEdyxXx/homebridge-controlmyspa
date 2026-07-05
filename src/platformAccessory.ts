@@ -80,7 +80,7 @@ export class SpaPlatformAccessory {
         
         switchService.getCharacteristic(this.platform.Characteristic.On)
           .onGet(() => this.getPumpState(id, type))
-          .onSet((value) => this.setPumpState(id, type, value));
+          .onSet((value) => { this.setPumpState(id, type, value); });
           
         this.pumpServices.set(`${type}-${id}`, switchService);
       } else if (type === 'LIGHT') {
@@ -91,7 +91,7 @@ export class SpaPlatformAccessory {
         
         lightService.getCharacteristic(this.platform.Characteristic.On)
           .onGet(() => this.getLightState(id))
-          .onSet((value) => this.setLightState(id, value));
+          .onSet((value) => { this.setLightState(id, value); });
           
         this.lightServices.set(id, lightService);
       }
@@ -254,7 +254,6 @@ export class SpaPlatformAccessory {
       }
     } catch (error) {
       this.platform.log.error(`Failed to set ${type} ${id}`, error);
-      throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
     }
   }
 
@@ -270,10 +269,9 @@ export class SpaPlatformAccessory {
 
     this.platform.log.info(`Setting Light ${id} to ${targetState}`);
     try {
-      await this.platform.controlMySpaApi.setLightState(spaId, id, targetState);
+      await this.platform.controlMySpaApi.setLightState(spaId, id, targetState as any);
     } catch (error) {
-      this.platform.log.error(`Failed to set Light ${id}`, error);
-      throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+      this.platform.log.error(`Failed to set LIGHT ${id}`, error);
     }
   }
 }
