@@ -1,0 +1,28 @@
+{
+  "pluginAlias": "ControlMySpa",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "email": {
+        "title": "Email",
+        "type": "string",
+        "required": true,
+        "description": "Your ControlMySpa account email."
+      },
+      "password": {
+        "title": "Password",
+        "type": "string",
+        "required": true,
+        "description": "Your ControlMySpa account password."
+      },
+      "pollingInterval": {
+        "title": "Polling Interval (ms)",
+        "type": "number",
+        "default": 300000,
+        "description": "How often to poll the ControlMySpa API in milliseconds. Default is 5 minutes (300000)."
+      }
+    }
+  }
+}
