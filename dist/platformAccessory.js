@@ -1,0 +1,220 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SpaPlatformAccessory = void 0;
+/**
+ * Platform Accessory
+ * An instance of this class is created for each accessory your platform registers
+ * Each accessory may expose multiple services of different service types.
+ */
+class SpaPlatformAccessory {
+    platform;
+    accessory;
+    thermostatService;
+    lightServices = new Map();
+    pumpServices = new Map();
+    constructor(platform, accessory) {
+        this.platform = platform;
+        this.accessory = accessory;
+        // Set accessory information
+        this.accessory.getService(this.platform.Service.AccessoryInformation)
+            .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Balboa')
+            .setCharacteristic(this.platform.Characteristic.Model, 'ControlMySpa')
+            .setCharacteristic(this.platform.Characteristic.SerialNumber, accessory.context.spaId || 'Default-Serial');
+        // --- Thermostat Service ---
+        this.thermostatService = this.accessory.getService(this.platform.Service.Thermostat) ||
+            this.accessory.addService(this.platform.Service.Thermostat);
+        this.thermostatService.setCharacteristic(this.platform.Characteristic.Name, 'Spa Temperature');
+        // Register handlers for Thermostat characteristics
+        this.thermostatService.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+            .onGet(this.getCurrentTemperature.bind(this));
+        this.thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature)
+            .onGet(this.getTargetTemperature.bind(this))
+            .onSet(this.setTargetTemperature.bind(this));
+        this.thermostatService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
+            .onGet(this.getCurrentHeatingCoolingState.bind(this));
+        this.thermostatService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+            .onGet(this.getTargetHeatingCoolingState.bind(this))
+            .onSet(this.setTargetHeatingCoolingState.bind(this));
+        // Define reasonable temp limits
+        this.thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature)
+            .setProps({
+            minValue: 10,
+            maxValue: 40,
+            minStep: 0.5,
+        });
+        // Setup components
+        this.setupDynamicComponents();
+    }
+    /**
+     * Parse the dynamic components from the API response
+     * and create Switch / Lightbulb services.
+     */
+    setupDynamicComponents() {
+        const spaData = this.accessory.context.spaData;
+        if (!spaData || !spaData.components)
+            return;
+        for (const comp of spaData.components) {
+            const id = comp.port || comp.id;
+            const type = comp.componentType || comp.type;
+            const name = comp.name || `${type} ${id}`;
+            if (type === 'PUMP') {
+                let pumpService = this.accessory.getService(name);
+                if (!pumpService) {
+                    pumpService = this.accessory.addService(this.platform.Service.Switch, name, `pump-${id}`);
+                }
+                pumpService.getCharacteristic(this.platform.Characteristic.On)
+                    .onGet(() => this.getPumpState(id))
+                    .onSet((value) => this.setPumpState(id, value));
+                this.pumpServices.set(id, pumpService);
+            }
+            else if (type === 'LIGHT') {
+                let lightService = this.accessory.getService(name);
+                if (!lightService) {
+                    lightService = this.accessory.addService(this.platform.Service.Lightbulb, name, `light-${id}`);
+                }
+                lightService.getCharacteristic(this.platform.Characteristic.On)
+                    .onGet(() => this.getLightState(id))
+                    .onSet((value) => this.setLightState(id, value));
+                this.lightServices.set(id, lightService);
+            }
+        }
+    }
+    onStateUpdated(spaData) {
+        this.accessory.context.spaData = spaData;
+        this.platform.log.debug('Updating HomeKit characteristics from background poll');
+        // Update Thermostat
+        this.thermostatService.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, this.extractCurrentTemp(spaData));
+        this.thermostatService.updateCharacteristic(this.platform.Characteristic.TargetTemperature, this.extractTargetTemp(spaData));
+        this.thermostatService.updateCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState, this.computeHeatingState(spaData));
+        // Update Pumps & Lights
+        if (spaData.components) {
+            for (const comp of spaData.components) {
+                const id = comp.port || comp.id;
+                const type = comp.componentType || comp.type;
+                const value = comp.value; // typically "OFF", "LOW", "HIGH" or "ON"
+                if (type === 'PUMP' && this.pumpServices.has(id)) {
+                    const isOn = value !== 'OFF' && value !== 0 && value !== '0';
+                    this.pumpServices.get(id).updateCharacteristic(this.platform.Characteristic.On, isOn);
+                }
+                else if (type === 'LIGHT' && this.lightServices.has(id)) {
+                    const isOn = value !== 'OFF' && value !== 0 && value !== '0';
+                    this.lightServices.get(id).updateCharacteristic(this.platform.Characteristic.On, isOn);
+                }
+            }
+        }
+    }
+    // --- Helper parsers ---
+    extractCurrentTemp(spaData) {
+        if (spaData?.currentState?.tempCurr !== undefined) {
+            return parseFloat(spaData.currentState.tempCurr);
+        }
+        return 30; // Fallback
+    }
+    extractTargetTemp(spaData) {
+        if (spaData?.currentState?.tempTarget !== undefined) {
+            return parseFloat(spaData.currentState.tempTarget);
+        }
+        return 30; // Fallback
+    }
+    computeHeatingState(spaData) {
+        const current = this.extractCurrentTemp(spaData);
+        const target = this.extractTargetTemp(spaData);
+        // Sometimes the API provides explicit heaterMode: "READY" or "REST" or heater status
+        const heaterMode = spaData?.currentState?.heaterMode;
+        if (heaterMode === 'HEATING' || target > current) {
+            return this.platform.Characteristic.CurrentHeatingCoolingState.HEAT;
+        }
+        return this.platform.Characteristic.CurrentHeatingCoolingState.OFF;
+    }
+    getComponentValue(type, id) {
+        const spaData = this.accessory.context.spaData;
+        if (spaData?.components) {
+            const comp = spaData.components.find((c) => (c.componentType === type || c.type === type) && (c.port === id || c.id === id));
+            if (comp)
+                return comp.value;
+        }
+        return 'OFF';
+    }
+    // --- Getters (Instant from Cache) ---
+    async getCurrentTemperature() {
+        return this.extractCurrentTemp(this.accessory.context.spaData);
+    }
+    async getTargetTemperature() {
+        return this.extractTargetTemp(this.accessory.context.spaData);
+    }
+    async getCurrentHeatingCoolingState() {
+        return this.computeHeatingState(this.accessory.context.spaData);
+    }
+    async getTargetHeatingCoolingState() {
+        const state = this.computeHeatingState(this.accessory.context.spaData);
+        // Map Current State to Target State
+        return state === this.platform.Characteristic.CurrentHeatingCoolingState.HEAT
+            ? this.platform.Characteristic.TargetHeatingCoolingState.HEAT
+            : this.platform.Characteristic.TargetHeatingCoolingState.AUTO;
+    }
+    async getPumpState(id) {
+        const value = this.getComponentValue('PUMP', id);
+        return value !== 'OFF' && String(value) !== '0';
+    }
+    async getLightState(id) {
+        const value = this.getComponentValue('LIGHT', id);
+        return value !== 'OFF' && String(value) !== '0';
+    }
+    // --- Setters (Optimistic Update + Cloud API Request) ---
+    async setTargetTemperature(value) {
+        const temp = value;
+        const spaId = this.accessory.context.spaId;
+        // Optimistic Update
+        if (!this.accessory.context.spaData.currentState)
+            this.accessory.context.spaData.currentState = {};
+        this.accessory.context.spaData.currentState.tempTarget = temp.toString();
+        this.platform.log.info(`Setting target temperature to ${temp}`);
+        try {
+            await this.platform.controlMySpaApi.setTemp(spaId, temp);
+        }
+        catch (error) {
+            this.platform.log.error('Failed to set target temperature', error);
+            throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
+        }
+    }
+    async setTargetHeatingCoolingState(value) {
+        // Usually spa heaters are auto-managed by the target temp.
+        // If user turns it "OFF", we could drop the target temp, but it's safer to just log it.
+        this.platform.log.info(`TargetHeatingCoolingState set to: ${value} (Note: Mostly managed by target temperature)`);
+    }
+    async setPumpState(id, value) {
+        const isOn = value;
+        const spaId = this.accessory.context.spaId;
+        const targetState = isOn ? 'HIGH' : 'OFF'; // Assuming 1-speed pumps for generic switch, or HIGH for 2-speed
+        // Optimistic Update
+        const comp = this.accessory.context.spaData.components?.find((c) => c.port === id || c.id === id);
+        if (comp)
+            comp.value = targetState;
+        this.platform.log.info(`Setting Pump ${id} to ${targetState}`);
+        try {
+            await this.platform.controlMySpaApi.setPumpState(spaId, id, targetState);
+        }
+        catch (error) {
+            this.platform.log.error(`Failed to set Pump ${id}`, error);
+            throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
+        }
+    }
+    async setLightState(id, value) {
+        const isOn = value;
+        const spaId = this.accessory.context.spaId;
+        const targetState = isOn ? 'ON' : 'OFF';
+        // Optimistic Update
+        const comp = this.accessory.context.spaData.components?.find((c) => c.port === id || c.id === id);
+        if (comp)
+            comp.value = targetState;
+        this.platform.log.info(`Setting Light ${id} to ${targetState}`);
+        try {
+            await this.platform.controlMySpaApi.setLightState(spaId, id, targetState);
+        }
+        catch (error) {
+            this.platform.log.error(`Failed to set Light ${id}`, error);
+            throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
+        }
+    }
+}
+exports.SpaPlatformAccessory = SpaPlatformAccessory;
