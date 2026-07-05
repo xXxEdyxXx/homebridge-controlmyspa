@@ -64,6 +64,8 @@ export class ControlMySpaPlatform implements DynamicPlatformPlugin {
       let spas = [];
       if (Array.isArray(spasResponse)) {
         spas = spasResponse;
+      } else if (spasResponse.data && Array.isArray(spasResponse.data.spas)) {
+        spas = spasResponse.data.spas;
       } else if (spasResponse._embedded && Array.isArray(spasResponse._embedded.spas)) {
         spas = spasResponse._embedded.spas;
       } else if (spasResponse.spas && Array.isArray(spasResponse.spas)) {
@@ -119,6 +121,8 @@ export class ControlMySpaPlatform implements DynamicPlatformPlugin {
       let spas = [];
       if (Array.isArray(spasResponse)) {
         spas = spasResponse;
+      } else if (spasResponse.data && Array.isArray(spasResponse.data.spas)) {
+        spas = spasResponse.data.spas;
       } else if (spasResponse._embedded && Array.isArray(spasResponse._embedded.spas)) {
         spas = spasResponse._embedded.spas;
       } else if (spasResponse.spas && Array.isArray(spasResponse.spas)) {

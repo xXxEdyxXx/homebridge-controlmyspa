@@ -50,7 +50,11 @@ export class ControlMySpaApi {
         },
       });
 
-      this.token = response.data.access_token;
+      const token = response.data?.data?.accessToken || response.data?.access_token;
+      if (!token) {
+        throw new Error('Token missing from authentication response: ' + JSON.stringify(response.data));
+      }
+      this.token = token;
       this.log.info('Successfully authenticated with ControlMySpa');
     } catch (error) {
       this.log.error('Authentication failed', error);
@@ -85,27 +89,36 @@ export class ControlMySpaApi {
   }
 
   public async getSpas() {
-    const data = await this.request('GET', '/spas');
+    const data = await this.request('GET', `/spas?username=${encodeURIComponent(this.email)}`);
     // Usually it returns an array of spas or an object with a _embedded.spas array.
     // We will return the raw data and let the platform handle it.
     return data;
   }
 
-  // Best guess endpoints based on common ControlMySpa wrapper logic.
-  // We POST to the specific control endpoints.
-  
   public async setTemp(spaId: string, temp: number) {
-    const endpoint = `/spas/${spaId}/control/tempTarget`;
-    return this.request('POST', endpoint, { tempTarget: temp });
+    const endpoint = `/spa-commands/temperature/value`;
+    return this.request('POST', endpoint, { value: temp, spaId: spaId, via: 'MOBILE' });
   }
 
   public async setLightState(spaId: string, port: string, state: 'ON' | 'OFF') {
-    const endpoint = `/spas/${spaId}/components/light/${port}`;
-    return this.request('POST', endpoint, { state });
+    const endpoint = `/spa-command/component-state`;
+    return this.request('POST', endpoint, { 
+      state: state === 'ON' ? 'HIGH' : 'OFF', 
+      deviceNumber: parseInt(port, 10) || 0, 
+      componentType: 'light', 
+      spaId: spaId, 
+      via: 'MOBILE' 
+    });
   }
 
   public async setPumpState(spaId: string, port: string, state: 'OFF' | 'LOW' | 'HIGH') {
-    const endpoint = `/spas/${spaId}/components/pump/${port}`;
-    return this.request('POST', endpoint, { state });
+    const endpoint = `/spa-command/component-state`;
+    return this.request('POST', endpoint, { 
+      state: state, 
+      deviceNumber: parseInt(port, 10) || 0, 
+      componentType: 'jet', 
+      spaId: spaId, 
+      via: 'MOBILE' 
+    });
   }
 }
