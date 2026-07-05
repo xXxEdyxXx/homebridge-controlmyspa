@@ -125,7 +125,7 @@ class ControlMySpaApi {
     async setBlowerState(spaId, port, state) {
         const endpoint = `/spa-commands/component-state`;
         return this.request('POST', endpoint, {
-            state: state,
+            state: state === 'ON' ? 'HIGH' : 'OFF',
             deviceNumber: parseInt(port, 10) || 0,
             componentType: 'blower',
             spaId: spaId,

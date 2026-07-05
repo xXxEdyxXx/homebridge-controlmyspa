@@ -194,7 +194,7 @@ class SpaPlatformAccessory {
     async setPumpState(id, type, value) {
         const isOn = value;
         const spaId = this.accessory.context.spaId;
-        const targetState = isOn ? 'ON' : 'OFF';
+        const targetState = isOn ? 'HIGH' : 'OFF';
         // Optimistic Update
         const components = this.accessory.context.spaData.currentState?.components;
         const comp = components?.find((c) => (c.port === id || c.id === id) && (c.componentType === type || c.type === type));

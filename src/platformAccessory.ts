@@ -238,7 +238,7 @@ export class SpaPlatformAccessory {
   async setPumpState(id: string, type: string, value: CharacteristicValue) {
     const isOn = value as boolean;
     const spaId = this.accessory.context.spaId;
-    const targetState = isOn ? 'ON' : 'OFF';
+    const targetState = isOn ? 'HIGH' : 'OFF';
     
     // Optimistic Update
     const components = this.accessory.context.spaData.currentState?.components;
