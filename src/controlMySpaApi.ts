@@ -111,7 +111,7 @@ export class ControlMySpaApi {
     });
   }
 
-  public async setPumpState(spaId: string, port: string, state: 'OFF' | 'LOW' | 'HIGH', componentType: string = 'pump') {
+  public async setPumpState(spaId: string, port: string, state: 'OFF' | 'LOW' | 'HIGH' | 'ON', componentType: string = 'pump') {
     const endpoint = `/spa-commands/component-state`;
     let apiType = componentType.toLowerCase();
     if (componentType === 'PUMP' || apiType === 'pump') apiType = 'jet';
@@ -125,10 +125,10 @@ export class ControlMySpaApi {
     });
   }
 
-  public async setBlowerState(spaId: string, port: string, state: 'ON' | 'OFF') {
+  public async setBlowerState(spaId: string, port: string, state: 'ON' | 'OFF' | 'HIGH') {
     const endpoint = `/spa-commands/component-state`;
     return this.request('POST', endpoint, { 
-      state: state === 'ON' ? 'HIGH' : 'OFF', 
+      state: state, 
       deviceNumber: parseInt(port, 10) || 0, 
       componentType: 'blower', 
       spaId: spaId, 

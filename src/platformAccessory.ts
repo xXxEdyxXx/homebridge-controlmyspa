@@ -238,7 +238,7 @@ export class SpaPlatformAccessory {
   async setPumpState(id: string, type: string, value: CharacteristicValue) {
     const isOn = value as boolean;
     const spaId = this.accessory.context.spaId;
-    const targetState = isOn ? 'HIGH' : 'OFF'; // Assuming 1-speed pumps for generic switch, or HIGH for 2-speed
+    const targetState = isOn ? 'ON' : 'OFF';
     
     // Optimistic Update
     const components = this.accessory.context.spaData.currentState?.components;
