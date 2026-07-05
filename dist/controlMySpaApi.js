@@ -111,10 +111,13 @@ class ControlMySpaApi {
     }
     async setPumpState(spaId, port, state, componentType = 'pump') {
         const endpoint = `/spa-commands/component-state`;
+        let apiType = componentType.toLowerCase();
+        if (componentType === 'PUMP' || apiType === 'pump')
+            apiType = 'jet';
         return this.request('POST', endpoint, {
             state: state,
             deviceNumber: parseInt(port, 10) || 0,
-            componentType: componentType.toLowerCase(),
+            componentType: apiType,
             spaId: spaId,
             via: 'MOBILE'
         });
