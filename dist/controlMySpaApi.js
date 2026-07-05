@@ -109,12 +109,12 @@ class ControlMySpaApi {
             via: 'MOBILE'
         });
     }
-    async setPumpState(spaId, port, state) {
+    async setPumpState(spaId, port, state, componentType = 'pump') {
         const endpoint = `/spa-commands/component-state`;
         return this.request('POST', endpoint, {
             state: state,
             deviceNumber: parseInt(port, 10) || 0,
-            componentType: 'jet',
+            componentType: componentType.toLowerCase(),
             spaId: spaId,
             via: 'MOBILE'
         });

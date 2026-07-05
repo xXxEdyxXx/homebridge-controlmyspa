@@ -206,7 +206,7 @@ class SpaPlatformAccessory {
                 await this.platform.controlMySpaApi.setBlowerState(spaId, id, targetState);
             }
             else {
-                await this.platform.controlMySpaApi.setPumpState(spaId, id, targetState);
+                await this.platform.controlMySpaApi.setPumpState(spaId, id, targetState, type);
             }
         }
         catch (error) {

@@ -250,7 +250,7 @@ export class SpaPlatformAccessory {
       if (type === 'BLOWER') {
         await this.platform.controlMySpaApi.setBlowerState(spaId, id, targetState as any);
       } else {
-        await this.platform.controlMySpaApi.setPumpState(spaId, id, targetState);
+        await this.platform.controlMySpaApi.setPumpState(spaId, id, targetState, type);
       }
     } catch (error) {
       this.platform.log.error(`Failed to set ${type} ${id}`, error);

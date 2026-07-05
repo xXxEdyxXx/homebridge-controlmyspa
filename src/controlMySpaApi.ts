@@ -111,12 +111,12 @@ export class ControlMySpaApi {
     });
   }
 
-  public async setPumpState(spaId: string, port: string, state: 'OFF' | 'LOW' | 'HIGH') {
+  public async setPumpState(spaId: string, port: string, state: 'OFF' | 'LOW' | 'HIGH', componentType: string = 'pump') {
     const endpoint = `/spa-commands/component-state`;
     return this.request('POST', endpoint, { 
       state: state, 
       deviceNumber: parseInt(port, 10) || 0, 
-      componentType: 'jet', 
+      componentType: componentType.toLowerCase(), 
       spaId: spaId, 
       via: 'MOBILE' 
     });
