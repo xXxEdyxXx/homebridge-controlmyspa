@@ -60,9 +60,10 @@ export class SpaPlatformAccessory {
    */
   private setupDynamicComponents() {
     const spaData = this.accessory.context.spaData;
-    if (!spaData || !spaData.components) return;
+    const components = spaData?.currentState?.components;
+    if (!components) return;
 
-    for (const comp of spaData.components) {
+    for (const comp of components) {
       const id = comp.port || comp.id;
       const type = comp.componentType || comp.type;
       const name = comp.name || `${type} ${id}`;
@@ -112,8 +113,9 @@ export class SpaPlatformAccessory {
     );
 
     // Update Pumps & Lights
-    if (spaData.components) {
-      for (const comp of spaData.components) {
+    const components = spaData?.currentState?.components;
+    if (components) {
+      for (const comp of components) {
         const id = comp.port || comp.id;
         const type = comp.componentType || comp.type;
         const value = comp.value; // typically "OFF", "LOW", "HIGH" or "ON"
@@ -131,15 +133,17 @@ export class SpaPlatformAccessory {
 
   // --- Helper parsers ---
   private extractCurrentTemp(spaData: any): number {
-    if (spaData?.currentState?.tempCurr !== undefined) {
-      return parseFloat(spaData.currentState.tempCurr);
+    if (spaData?.currentState?.currentTemp !== undefined) {
+      const fahrenheit = parseFloat(spaData.currentState.currentTemp);
+      return (fahrenheit - 32) * 5 / 9; // HomeKit always expects Celsius
     }
     return 30; // Fallback
   }
 
   private extractTargetTemp(spaData: any): number {
-    if (spaData?.currentState?.tempTarget !== undefined) {
-      return parseFloat(spaData.currentState.tempTarget);
+    if (spaData?.currentState?.desiredTemp !== undefined) {
+      const fahrenheit = parseFloat(spaData.currentState.desiredTemp);
+      return (fahrenheit - 32) * 5 / 9; // HomeKit always expects Celsius
     }
     return 30; // Fallback
   }
@@ -159,8 +163,9 @@ export class SpaPlatformAccessory {
 
   private getComponentValue(type: string, id: string): string {
     const spaData = this.accessory.context.spaData;
-    if (spaData?.components) {
-      const comp = spaData.components.find((c: any) => 
+    const components = spaData?.currentState?.components;
+    if (components) {
+      const comp = components.find((c: any) => 
         (c.componentType === type || c.type === type) && (c.port === id || c.id === id)
       );
       if (comp) return comp.value;
@@ -203,16 +208,17 @@ export class SpaPlatformAccessory {
   // --- Setters (Optimistic Update + Cloud API Request) ---
 
   async setTargetTemperature(value: CharacteristicValue) {
-    const temp = value as number;
+    const tempC = value as number;
+    const tempF = Math.round((tempC * 9 / 5) + 32);
     const spaId = this.accessory.context.spaId;
     
     // Optimistic Update
     if (!this.accessory.context.spaData.currentState) this.accessory.context.spaData.currentState = {};
-    this.accessory.context.spaData.currentState.tempTarget = temp.toString();
+    this.accessory.context.spaData.currentState.desiredTemp = tempF.toString();
     
-    this.platform.log.info(`Setting target temperature to ${temp}`);
+    this.platform.log.info(`Setting target temperature to ${tempC}°C (${tempF}°F)`);
     try {
-      await this.platform.controlMySpaApi.setTemp(spaId, temp);
+      await this.platform.controlMySpaApi.setTemp(spaId, tempF);
     } catch (error) {
       this.platform.log.error('Failed to set target temperature', error);
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
@@ -231,7 +237,8 @@ export class SpaPlatformAccessory {
     const targetState = isOn ? 'HIGH' : 'OFF'; // Assuming 1-speed pumps for generic switch, or HIGH for 2-speed
     
     // Optimistic Update
-    const comp = this.accessory.context.spaData.components?.find((c: any) => c.port === id || c.id === id);
+    const components = this.accessory.context.spaData.currentState?.components;
+    const comp = components?.find((c: any) => c.port === id || c.id === id);
     if (comp) comp.value = targetState;
 
     this.platform.log.info(`Setting Pump ${id} to ${targetState}`);
@@ -249,7 +256,8 @@ export class SpaPlatformAccessory {
     const targetState = isOn ? 'ON' : 'OFF';
     
     // Optimistic Update
-    const comp = this.accessory.context.spaData.components?.find((c: any) => c.port === id || c.id === id);
+    const components = this.accessory.context.spaData.currentState?.components;
+    const comp = components?.find((c: any) => c.port === id || c.id === id);
     if (comp) comp.value = targetState;
 
     this.platform.log.info(`Setting Light ${id} to ${targetState}`);
