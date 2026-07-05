@@ -100,7 +100,7 @@ class ControlMySpaApi {
         return this.request('POST', endpoint, { value: temp, spaId: spaId, via: 'MOBILE' });
     }
     async setLightState(spaId, port, state) {
-        const endpoint = `/spa-command/component-state`;
+        const endpoint = `/spa-commands/component-state`;
         return this.request('POST', endpoint, {
             state: state === 'ON' ? 'HIGH' : 'OFF',
             deviceNumber: parseInt(port, 10) || 0,
@@ -110,7 +110,7 @@ class ControlMySpaApi {
         });
     }
     async setPumpState(spaId, port, state) {
-        const endpoint = `/spa-command/component-state`;
+        const endpoint = `/spa-commands/component-state`;
         return this.request('POST', endpoint, {
             state: state,
             deviceNumber: parseInt(port, 10) || 0,
@@ -120,7 +120,7 @@ class ControlMySpaApi {
         });
     }
     async setBlowerState(spaId, port, state) {
-        const endpoint = `/spa-command/component-state`;
+        const endpoint = `/spa-commands/component-state`;
         return this.request('POST', endpoint, {
             state: state === 'ON' ? 'HIGH' : 'OFF',
             deviceNumber: parseInt(port, 10) || 0,

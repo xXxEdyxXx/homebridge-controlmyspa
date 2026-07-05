@@ -101,7 +101,7 @@ export class ControlMySpaApi {
   }
 
   public async setLightState(spaId: string, port: string, state: 'ON' | 'OFF') {
-    const endpoint = `/spa-command/component-state`;
+    const endpoint = `/spa-commands/component-state`;
     return this.request('POST', endpoint, { 
       state: state === 'ON' ? 'HIGH' : 'OFF', 
       deviceNumber: parseInt(port, 10) || 0, 
@@ -112,7 +112,7 @@ export class ControlMySpaApi {
   }
 
   public async setPumpState(spaId: string, port: string, state: 'OFF' | 'LOW' | 'HIGH') {
-    const endpoint = `/spa-command/component-state`;
+    const endpoint = `/spa-commands/component-state`;
     return this.request('POST', endpoint, { 
       state: state, 
       deviceNumber: parseInt(port, 10) || 0, 
@@ -123,7 +123,7 @@ export class ControlMySpaApi {
   }
 
   public async setBlowerState(spaId: string, port: string, state: 'ON' | 'OFF') {
-    const endpoint = `/spa-command/component-state`;
+    const endpoint = `/spa-commands/component-state`;
     return this.request('POST', endpoint, { 
       state: state === 'ON' ? 'HIGH' : 'OFF', 
       deviceNumber: parseInt(port, 10) || 0, 
